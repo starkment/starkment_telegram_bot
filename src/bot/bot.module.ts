@@ -8,6 +8,7 @@ import { HttpModule } from '@nestjs/axios';
 import { TelegrafModule } from 'nestjs-telegraf';
 import * as LocalSession from 'telegraf-session-local';
 import { ConfigService } from '@nestjs/config';
+import { WalletModule } from 'src/wallet/wallet.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { ConfigService } from '@nestjs/config';
         ],
       }),
     }),
+    WalletModule,
   ],
   controllers: [BotController],
   providers: [BotService, MessageService, UpdateService],
