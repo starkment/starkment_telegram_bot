@@ -1,8 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { Start, Ctx, Action } from 'nestjs-telegraf';
+import { Start, Ctx, Action, Update } from 'nestjs-telegraf';
 import { Context } from 'telegraf';
 
-@Injectable()
+@Update()
 export class UpdateService {
   @Start()
   async start(@Ctx() ctx: Context) {
