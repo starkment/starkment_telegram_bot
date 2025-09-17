@@ -25,7 +25,8 @@
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/swagger": "^11.2.0",
     "reflect-metadata": "^0.2.0",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+     "starknet": "8.5.2"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.0.0",
