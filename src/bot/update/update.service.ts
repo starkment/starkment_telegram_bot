@@ -26,15 +26,24 @@ export class UpdateService {
 
   @Action('show_menu')
   async showMenu(@Ctx() ctx: Context) {
-    await ctx.reply(`Starkment is global payment app` + `Choose an option:`, {
+    await ctx.reply(`Starkment is a global payment app.\nChoose an option:`, {
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
           [
+            { text: '💸 Send Money', callback_data: 'send_money' },
+            { text: '📥 Receive Money', callback_data: 'receive_money' },
+          ],
+          [
+            { text: '💰 Check Balance', callback_data: 'check_balance' },
             {
-              text: 'send money',
-              callback_data: 'send_money',
+              text: '📝 Transaction History',
+              callback_data: 'transaction_history',
             },
+          ],
+          [
+            { text: '⚙️ Settings', callback_data: 'settings' },
+            { text: '❓ Help / Support', callback_data: 'help_support' },
           ],
         ],
       },
