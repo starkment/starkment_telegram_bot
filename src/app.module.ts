@@ -4,6 +4,7 @@ import { AppService } from './app.service';
 import { WalletModule } from './wallet/wallet.module';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MongooseModule } from '@nestjs/mongoose';
+import { BotModule } from './bot/bot.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { MongooseModule } from '@nestjs/mongoose';
       },
     }),
     WalletModule,
+    BotModule,
   ],
   controllers: [AppController],
   providers: [AppService],
