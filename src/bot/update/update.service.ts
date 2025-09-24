@@ -30,6 +30,7 @@ export class UpdateService {
       parse_mode: 'HTML',
       reply_markup: {
         inline_keyboard: [
+          [{ text: '🆕 Register', callback_data: 'register' }],
           [
             { text: '💸 Send Money', callback_data: 'send_money' },
             { text: '📥 Receive Money', callback_data: 'receive_money' },
@@ -48,5 +49,18 @@ export class UpdateService {
         ],
       },
     });
+  }
+
+  @Action('register')
+  async register(@Ctx() ctx: Context) {
+    const walletData = await this.walletService.createWallet();
+    console.log('wallet details', walletData);
+
+    await ctx.reply(
+      `✅ account registered!\n\n<code>${JSON.stringify(walletData)}</code>`,
+      {
+        parse_mode: 'HTML',
+      },
+    );
   }
 }
