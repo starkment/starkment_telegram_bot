@@ -8,8 +8,6 @@ export class UpdateService {
 
   @Start()
   async start(@Ctx() ctx: Context) {
-    const walletData = await this.walletService.createWallet();
-    console.log('wallet details', walletData);
     await ctx.reply('Welcome to Starkment Bot!\n\n', {
       reply_markup: {
         inline_keyboard: [
@@ -53,14 +51,15 @@ export class UpdateService {
 
   @Action('register')
   async register(@Ctx() ctx: Context) {
-    const walletData = await this.walletService.createWallet();
+    const telegramId = ctx.from?.id.toString(); // Telegram user ID
+    const walletData =
+      await this.walletService.saveUserWalletDetails(telegramId);
+
     console.log('wallet details', walletData);
 
     await ctx.reply(
-      `✅ account registered!\n\n<code>${JSON.stringify(walletData)}</code>`,
-      {
-        parse_mode: 'HTML',
-      },
+      `✅ Account registered!\n\n<b>Wallet:</b> <code>${walletData.walletAddress}</code>\n<b>Status:</b> ${walletData.status}`,
+      { parse_mode: 'HTML' },
     );
   }
 }

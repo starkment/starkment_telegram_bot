@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { InjectModel } from '@nestjs/mongoose';
 import {
   Account,
   ec,
@@ -13,12 +14,20 @@ import {
   PaymasterRpc,
   num,
 } from 'starknet';
+import { Wallet } from './schemas/wallet.schema';
+import { Model } from 'mongoose';
+import { CreateWalletDto } from './dto/create-wallet.dto';
 
 @Injectable()
 export class WalletService {
   private readonly logger = new Logger(WalletService.name);
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+
+    @InjectModel(Wallet.name)
+    private walletModel: Model<Wallet>,
+  ) {}
 
   // wallet creation with Starknet.js v8.5.2 paymaster
   async createWallet() {
@@ -154,5 +163,36 @@ export class WalletService {
         details: error.stack || 'Failed to create wallet with paymaster',
       };
     }
+  }
+
+  async saveUserWalletDetails(userId: string): Promise<Wallet | null> {
+    const existing = await this.walletModel.findOne({ userId }).exec();
+    if (existing) {
+      return existing;
+    }
+
+    const walletData = await this.createWallet();
+
+    if (!walletData.success) {
+      this.logger.error(
+        `Wallet creation failed for user ${userId}: ${walletData.error}`,
+      );
+      return null; // don’t save failed attempts
+    }
+
+    const createWalletDto: CreateWalletDto = {
+      userId,
+      transactionHash: walletData.transactionHash,
+      walletAddress: walletData.walletAddress,
+      publicKey: walletData.publicKey,
+      privateKey: walletData.privateKey,
+      status: walletData.status,
+      gasToken: walletData.gasToken,
+      mode: walletData.mode,
+      success: true,
+    };
+
+    const newWallet = new this.walletModel(createWalletDto);
+    return newWallet.save();
   }
 }

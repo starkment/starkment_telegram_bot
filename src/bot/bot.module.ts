@@ -7,8 +7,8 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { HttpModule } from '@nestjs/axios';
 import { TelegrafModule } from 'nestjs-telegraf';
 import * as LocalSession from 'telegraf-session-local';
-import { ConfigService } from '@nestjs/config';
 import { WalletModule } from 'src/wallet/wallet.module';
+import { ConfigService } from '@nestjs/config';
 
 @Module({
   imports: [
