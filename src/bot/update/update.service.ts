@@ -52,14 +52,8 @@ export class UpdateService {
   @Action('register')
   async register(@Ctx() ctx: Context) {
     const telegramId = ctx.from?.id.toString(); // Telegram user ID
-    const walletData =
-      await this.walletService.saveUserWalletDetails(telegramId);
+    const message = await this.walletService.saveUserWalletDetails(telegramId);
 
-    console.log('wallet details', walletData);
-
-    await ctx.reply(
-      `✅ Account registered!\n\n<b>Wallet:</b> <code>${walletData.walletAddress}</code>\n<b>Status:</b> ${walletData.status}`,
-      { parse_mode: 'HTML' },
-    );
+    await ctx.reply(message, { parse_mode: 'HTML' });
   }
 }

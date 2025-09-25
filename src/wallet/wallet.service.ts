@@ -165,10 +165,10 @@ export class WalletService {
     }
   }
 
-  async saveUserWalletDetails(userId: string): Promise<Wallet | null> {
+  async saveUserWalletDetails(userId: string): Promise<string> {
     const existing = await this.walletModel.findOne({ userId }).exec();
     if (existing) {
-      return existing;
+      return `⚠️ Account already registered`;
     }
 
     const walletData = await this.createWallet();
@@ -177,7 +177,7 @@ export class WalletService {
       this.logger.error(
         `Wallet creation failed for user ${userId}: ${walletData.error}`,
       );
-      return null; // don’t save failed attempts
+      return `❌ Wallet creation failed. Reason: ${walletData.error || 'Unknown error'}`;
     }
 
     const createWalletDto: CreateWalletDto = {
@@ -193,6 +193,8 @@ export class WalletService {
     };
 
     const newWallet = new this.walletModel(createWalletDto);
-    return newWallet.save();
+    await newWallet.save();
+
+    return `✅ Account registered!`;
   }
 }
