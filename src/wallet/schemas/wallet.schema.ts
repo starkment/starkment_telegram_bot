@@ -4,21 +4,24 @@ import { Document } from 'mongoose';
 @Schema({ timestamps: true })
 export class Wallet extends Document {
   @Prop({ required: true })
-  userId: string; // Telegram ID
+  userId: string;
 
-  @Prop()
-  transactionHash: string;
-
-  @Prop()
+  @Prop({ required: true })
   walletAddress: string;
 
-  @Prop()
+  @Prop({ required: true })
   publicKey: string;
 
-  @Prop()
-  privateKey: string;
+  @Prop({ required: true })
+  privateKey: string; // encrypted
 
-  @Prop()
+  @Prop({ required: true })
+  iv: string;
+
+  @Prop({ required: true })
+  authTag: string;
+
+  @Prop({ required: true })
   status: string;
 
   @Prop()
@@ -27,7 +30,7 @@ export class Wallet extends Document {
   @Prop()
   mode: string;
 
-  @Prop()
+  @Prop({ default: true })
   success: boolean;
 }
 

@@ -17,6 +17,7 @@ import {
 import { Wallet } from './schemas/wallet.schema';
 import { Model } from 'mongoose';
 import { CreateWalletDto } from './dto/create-wallet.dto';
+import { encrypt } from 'src/common/crypto.util';
 
 @Injectable()
 export class WalletService {
@@ -180,12 +181,16 @@ export class WalletService {
       return `❌ Wallet creation failed. Reason: ${walletData.error || 'Unknown error'}`;
     }
 
+    const encrypted = encrypt(walletData.privateKey);
+
     const createWalletDto: CreateWalletDto = {
       userId,
       transactionHash: walletData.transactionHash,
       walletAddress: walletData.walletAddress,
       publicKey: walletData.publicKey,
-      privateKey: walletData.privateKey,
+      privateKey: encrypted.encryptedData, // store encrypted
+      iv: encrypted.iv, // store IV
+      authTag: encrypted.authTag, // store AuthTag
       status: walletData.status,
       gasToken: walletData.gasToken,
       mode: walletData.mode,

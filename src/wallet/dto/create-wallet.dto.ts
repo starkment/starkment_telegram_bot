@@ -8,4 +8,6 @@ export class CreateWalletDto {
   gasToken: string;
   mode: string;
   success: boolean;
+  iv: any;
+  authTag: any;
 }
