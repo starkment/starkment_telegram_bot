@@ -32,6 +32,9 @@ export class Wallet extends Document {
 
   @Prop({ default: true })
   success: boolean;
+
+  @Prop({ required: true })
+  transactionPin: string;
 }
 
 export const WalletSchema = SchemaFactory.createForClass(Wallet);
