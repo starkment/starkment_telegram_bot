@@ -208,4 +208,8 @@ export class WalletService {
 
     return `✅ Account and transaction PIN has been set successfully.`;
   }
+
+  async findByUserId(userId: string) {
+    return this.walletModel.findOne({ userId }).exec();
+  }
 }

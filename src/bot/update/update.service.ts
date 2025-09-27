@@ -61,6 +61,17 @@ export class UpdateService {
     ctx.session.awaitingPin = true;
     ctx.session.telegramId = telegramId;
 
+    // Check if wallet already exists
+    const existing = await this.walletService.findByUserId(
+      ctx.session.telegramId!,
+    );
+    if (existing) {
+      await ctx.reply('⚠️ Account and transaction PIN are already set.');
+      ctx.session.awaitingPin = false;
+      ctx.session.telegramId = undefined;
+      return this.showMenu(ctx);
+    }
+
     await ctx.reply('Please create a 4-digit transaction PIN:');
   }
 
@@ -89,6 +100,9 @@ export class UpdateService {
       // Reset session
       ctx.session.awaitingPin = false;
       ctx.session.telegramId = undefined;
+
+      // Show main menu again
+      await this.showMenu(ctx);
     }
   }
 }
