@@ -1,5 +1,7 @@
 export class CreateWalletDto {
-  userId: string; // Telegram user id
+  userId: string;
+  username?: string;
+  email?: string;
   transactionHash: string;
   walletAddress: string;
   publicKey: string;
@@ -10,5 +12,5 @@ export class CreateWalletDto {
   success: boolean;
   iv: any;
   authTag: any;
-  transactionPin: string; // hashed pin
+  transactionPin: string;
 }

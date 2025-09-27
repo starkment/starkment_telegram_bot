@@ -4,7 +4,8 @@
       "id": "1315121610:1315121610",
       "data": {
         "__scenes": {},
-        "awaitingPin": false
+        "awaitingPin": false,
+        "awaitingEmail": false
       }
     }
   ]

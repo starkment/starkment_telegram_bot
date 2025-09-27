@@ -9,6 +9,7 @@ import {
 interface BotContext extends Context {
   session?: {
     awaitingPin?: boolean;
+    awaitingEmail?: boolean;
     telegramId?: string;
   };
 }
@@ -89,23 +90,35 @@ export class UpdateService {
         return ctx.reply('❌ Invalid PIN. Please enter a 4-digit number:');
       }
 
-      // 🗑 Delete user's original message so PIN is not visible
       await ctx.deleteMessage(ctx.message.message_id);
 
-      // Save user with hashed PIN
       const message = await this.walletService.saveUserWalletDetails(
         ctx.session.telegramId!,
         pin,
+        ctx.from?.username || '', // auto add Telegram username
+        undefined, // email will come next
       );
 
       await ctx.reply(message, { parse_mode: 'HTML' });
 
-      // Reset session
       ctx.session.awaitingPin = false;
-      ctx.session.telegramId = undefined;
+      ctx.session.awaitingEmail = true; // now wait for email
+      return;
+    }
 
-      // Show main menu again
-      await this.showMenu(ctx);
+    if (ctx.session?.awaitingEmail) {
+      const email = ctx.message.text;
+
+      if (!/^\S+@\S+\.\S+$/.test(email)) {
+        return ctx.reply('❌ Invalid email format. Please try again:');
+      }
+
+      await this.walletService.updateEmail(ctx.from!.id.toString(), email);
+
+      await ctx.reply(`✅ Email saved successfully: ${email}`);
+      ctx.session.awaitingEmail = false;
+
+      return this.showMenu(ctx);
     }
   }
 }

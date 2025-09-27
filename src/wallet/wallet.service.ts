@@ -167,14 +167,18 @@ export class WalletService {
     }
   }
 
-  async saveUserWalletDetails(userId: string, pin: string): Promise<string> {
+  async saveUserWalletDetails(
+    userId: string,
+    pin: string,
+    username?: string,
+    email?: string,
+  ): Promise<string> {
     const existing = await this.walletModel.findOne({ userId }).exec();
     if (existing) {
       return `⚠️ Account already registered`;
     }
 
     const walletData = await this.createWallet();
-
     if (!walletData.success) {
       this.logger.error(
         `Wallet creation failed for user ${userId}: ${walletData.error}`,
@@ -182,34 +186,37 @@ export class WalletService {
       return `❌ Wallet creation failed. Reason: ${walletData.error || 'Unknown error'}`;
     }
 
-    // Hash the PIN
     const hashedPin = await bcrypt.hash(pin, 10);
-
-    // Encrypt the private key
     const encrypted = encrypt(walletData.privateKey);
 
     const createWalletDto: CreateWalletDto = {
       userId,
+      username, // Telegram username
+      email, // save email
       transactionHash: walletData.transactionHash,
       walletAddress: walletData.walletAddress,
       publicKey: walletData.publicKey,
-      privateKey: encrypted.encryptedData, // store encrypted
+      privateKey: encrypted.encryptedData,
       iv: encrypted.iv,
       authTag: encrypted.authTag,
       status: walletData.status,
       gasToken: walletData.gasToken,
       mode: walletData.mode,
       success: true,
-      transactionPin: hashedPin, // store hashed PIN
+      transactionPin: hashedPin,
     };
 
     const newWallet = new this.walletModel(createWalletDto);
     await newWallet.save();
 
-    return `✅ Account and transaction PIN has been set successfully.`;
+    return `✅ Account and transaction PIN set successfully. Please provide your email to complete registration.`;
   }
 
   async findByUserId(userId: string) {
     return this.walletModel.findOne({ userId }).exec();
+  }
+
+  async updateEmail(userId: string, email: string): Promise<void> {
+    await this.walletModel.updateOne({ userId }, { $set: { email } }).exec();
   }
 }

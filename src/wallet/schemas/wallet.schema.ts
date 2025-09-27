@@ -6,6 +6,12 @@ export class Wallet extends Document {
   @Prop({ required: true })
   userId: string;
 
+  @Prop()
+  username: string; // telegram username
+
+  @Prop()
+  email: string; //  user-provided email
+
   @Prop({ required: true })
   walletAddress: string;
 
@@ -13,7 +19,7 @@ export class Wallet extends Document {
   publicKey: string;
 
   @Prop({ required: true })
-  privateKey: string; // encrypted
+  privateKey: string;
 
   @Prop({ required: true })
   iv: string;
