@@ -89,6 +89,9 @@ export class UpdateService {
         return ctx.reply('❌ Invalid PIN. Please enter a 4-digit number:');
       }
 
+      // 🗑 Delete user's original message so PIN is not visible
+      await ctx.deleteMessage(ctx.message.message_id);
+
       // Save user with hashed PIN
       const message = await this.walletService.saveUserWalletDetails(
         ctx.session.telegramId!,
