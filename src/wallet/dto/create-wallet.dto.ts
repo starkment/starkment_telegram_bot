@@ -10,4 +10,5 @@ export class CreateWalletDto {
   success: boolean;
   iv: any;
   authTag: any;
+  transactionPin: string; // hashed pin
 }

@@ -18,6 +18,7 @@ import { Wallet } from './schemas/wallet.schema';
 import { Model } from 'mongoose';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { encrypt } from 'src/common/crypto.util';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class WalletService {
@@ -166,7 +167,7 @@ export class WalletService {
     }
   }
 
-  async saveUserWalletDetails(userId: string): Promise<string> {
+  async saveUserWalletDetails(userId: string, pin: string): Promise<string> {
     const existing = await this.walletModel.findOne({ userId }).exec();
     if (existing) {
       return `⚠️ Account already registered`;
@@ -181,6 +182,10 @@ export class WalletService {
       return `❌ Wallet creation failed. Reason: ${walletData.error || 'Unknown error'}`;
     }
 
+    // Hash the PIN
+    const hashedPin = await bcrypt.hash(pin, 10);
+
+    // Encrypt the private key
     const encrypted = encrypt(walletData.privateKey);
 
     const createWalletDto: CreateWalletDto = {
@@ -189,17 +194,18 @@ export class WalletService {
       walletAddress: walletData.walletAddress,
       publicKey: walletData.publicKey,
       privateKey: encrypted.encryptedData, // store encrypted
-      iv: encrypted.iv, // store IV
-      authTag: encrypted.authTag, // store AuthTag
+      iv: encrypted.iv,
+      authTag: encrypted.authTag,
       status: walletData.status,
       gasToken: walletData.gasToken,
       mode: walletData.mode,
       success: true,
+      transactionPin: hashedPin, // store hashed PIN
     };
 
     const newWallet = new this.walletModel(createWalletDto);
     await newWallet.save();
 
-    return `✅ Account registered!`;
+    return `✅ Account and transaction PIN has been set successfully.`;
   }
 }

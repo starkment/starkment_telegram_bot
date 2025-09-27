@@ -3,7 +3,8 @@
     {
       "id": "1315121610:1315121610",
       "data": {
-        "__scenes": {}
+        "__scenes": {},
+        "awaitingPin": false
       }
     }
   ]

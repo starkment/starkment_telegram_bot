@@ -1,29 +1,33 @@
-import { Start, Ctx, Action, Update } from 'nestjs-telegraf';
+import { Start, Ctx, Action, Update, On } from 'nestjs-telegraf';
 import { WalletService } from 'src/wallet/wallet.service';
 import { Context } from 'telegraf';
+import {
+  Message,
+  Update as TgUpdate,
+} from 'telegraf/typings/core/types/typegram';
+
+interface BotContext extends Context {
+  session?: {
+    awaitingPin?: boolean;
+    telegramId?: string;
+  };
+}
 
 @Update()
 export class UpdateService {
   constructor(private readonly walletService: WalletService) {}
 
   @Start()
-  async start(@Ctx() ctx: Context) {
+  async start(@Ctx() ctx: BotContext) {
     await ctx.reply('Welcome to Starkment Bot!\n\n', {
       reply_markup: {
-        inline_keyboard: [
-          [
-            {
-              text: '🚀 Start',
-              callback_data: 'show_menu',
-            },
-          ],
-        ],
+        inline_keyboard: [[{ text: '🚀 Start', callback_data: 'show_menu' }]],
       },
     });
   }
 
   @Action('show_menu')
-  async showMenu(@Ctx() ctx: Context) {
+  async showMenu(@Ctx() ctx: BotContext) {
     await ctx.reply(`Starkment is a global payment app.\nChoose an option:`, {
       parse_mode: 'HTML',
       reply_markup: {
@@ -50,10 +54,41 @@ export class UpdateService {
   }
 
   @Action('register')
-  async register(@Ctx() ctx: Context) {
-    const telegramId = ctx.from?.id.toString(); // Telegram user ID
-    const message = await this.walletService.saveUserWalletDetails(telegramId);
+  async register(@Ctx() ctx: BotContext) {
+    const telegramId = ctx.from?.id.toString();
 
-    await ctx.reply(message, { parse_mode: 'HTML' });
+    ctx.session = ctx.session || {};
+    ctx.session.awaitingPin = true;
+    ctx.session.telegramId = telegramId;
+
+    await ctx.reply('Please create a 4-digit transaction PIN:');
+  }
+
+  @On('text')
+  async handleText(
+    @Ctx()
+    ctx: BotContext & {
+      message: TgUpdate.New & TgUpdate.NonChannel & Message.TextMessage;
+    },
+  ) {
+    if (ctx.session?.awaitingPin) {
+      const pin = ctx.message.text;
+
+      if (!/^\d{4}$/.test(pin)) {
+        return ctx.reply('❌ Invalid PIN. Please enter a 4-digit number:');
+      }
+
+      // Save user with hashed PIN
+      const message = await this.walletService.saveUserWalletDetails(
+        ctx.session.telegramId!,
+        pin,
+      );
+
+      await ctx.reply(message, { parse_mode: 'HTML' });
+
+      // Reset session
+      ctx.session.awaitingPin = false;
+      ctx.session.telegramId = undefined;
+    }
   }
 }
