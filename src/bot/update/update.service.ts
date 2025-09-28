@@ -29,28 +29,39 @@ export class UpdateService {
 
   @Action('show_menu')
   async showMenu(@Ctx() ctx: BotContext) {
+    const telegramId = ctx.from?.id.toString();
+    const existing = await this.walletService.findByUserId(telegramId!);
+
+    // Build menu dynamically
+    const inlineKeyboard: any[] = [];
+
+    if (!existing) {
+      inlineKeyboard.push([{ text: '🆕 Register', callback_data: 'register' }]);
+    }
+
+    if (existing) {
+      inlineKeyboard.push(
+        [
+          { text: '💸 Send Money', callback_data: 'send_money' },
+          { text: '📥 Receive Money', callback_data: 'receive_money' },
+        ],
+        [
+          { text: '💰 Check Balance', callback_data: 'check_balance' },
+          {
+            text: '📝 Transaction History',
+            callback_data: 'transaction_history',
+          },
+        ],
+        [
+          { text: '⚙️ Settings', callback_data: 'settings' },
+          { text: '❓ Help / Support', callback_data: 'help_support' },
+        ],
+      );
+    }
+
     await ctx.reply(`Starkment is a global payment app.\nChoose an option:`, {
       parse_mode: 'HTML',
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: '🆕 Register', callback_data: 'register' }],
-          [
-            { text: '💸 Send Money', callback_data: 'send_money' },
-            { text: '📥 Receive Money', callback_data: 'receive_money' },
-          ],
-          [
-            { text: '💰 Check Balance', callback_data: 'check_balance' },
-            {
-              text: '📝 Transaction History',
-              callback_data: 'transaction_history',
-            },
-          ],
-          [
-            { text: '⚙️ Settings', callback_data: 'settings' },
-            { text: '❓ Help / Support', callback_data: 'help_support' },
-          ],
-        ],
-      },
+      reply_markup: { inline_keyboard: inlineKeyboard },
     });
   }
 
