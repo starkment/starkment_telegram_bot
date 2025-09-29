@@ -11,6 +11,10 @@ interface BotContext extends Context {
     awaitingPin?: boolean;
     awaitingEmail?: boolean;
     telegramId?: string;
+
+    awaitingRecipient?: boolean;
+    awaitingAmount?: boolean;
+    recipientAddress?: string;
   };
 }
 
@@ -87,7 +91,7 @@ export class UpdateService {
     await ctx.reply('Please create a 4-digit transaction PIN:');
   }
 
-  @On('text')
+  /*@On('text')
   async handleText(
     @Ctx()
     ctx: BotContext & {
@@ -130,6 +134,70 @@ export class UpdateService {
       ctx.session.awaitingEmail = false;
 
       return this.showMenu(ctx);
+    }
+  }*/
+
+  // --- Send Money Flow ---
+  @Action('send_money')
+  async sendMoney(@Ctx() ctx: BotContext) {
+    ctx.session = ctx.session || {};
+    ctx.session.awaitingRecipient = true;
+
+    await ctx.reply('💸 Please enter the recipient Starknet wallet address:');
+  }
+
+  @On('text')
+  async handleText(
+    @Ctx()
+    ctx: BotContext & {
+      message: TgUpdate.New & TgUpdate.NonChannel & Message.TextMessage;
+    },
+  ) {
+    const text = ctx.message.text;
+
+    // Get recipient address
+    if (ctx.session?.awaitingRecipient) {
+      if (!/^0x[0-9a-fA-F]{64}$/.test(text)) {
+        return ctx.reply('❌ Invalid Starknet address. Please try again:');
+      }
+
+      ctx.session.recipientAddress = text;
+      ctx.session.awaitingRecipient = false;
+      ctx.session.awaitingAmount = true;
+
+      return ctx.reply(
+        '✅ Recipient saved.\n\nEnter the amount of USDT to send:',
+      );
+    }
+
+    // Get amount
+    if (ctx.session?.awaitingAmount) {
+      const amount = Number(text);
+      if (isNaN(amount) || amount <= 0) {
+        return ctx.reply('❌ Invalid amount. Please enter a valid number:');
+      }
+
+      try {
+        await ctx.reply('⏳ Processing transaction...');
+
+        const tx = await this.walletService.sendUSDT(
+          ctx.session.recipientAddress!,
+          BigInt(amount),
+        );
+
+        await ctx.reply(
+          `✅ Sent <b>${amount} USDT</b> to <code>${ctx.session.recipientAddress}</code>\n\n🔗 Tx Hash: <code>${tx.transaction_hash}</code>`,
+          { parse_mode: 'HTML' },
+        );
+      } catch (err) {
+        await ctx.reply(`❌ Transaction failed: ${err.message}`);
+      }
+
+      // Reset session
+      ctx.session.awaitingAmount = false;
+      ctx.session.recipientAddress = undefined;
+
+      return;
     }
   }
 }

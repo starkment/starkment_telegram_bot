@@ -13,23 +13,53 @@ import {
   CairoCustomEnum,
   PaymasterRpc,
   num,
+  Contract,
 } from 'starknet';
 import { Wallet } from './schemas/wallet.schema';
 import { Model } from 'mongoose';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { encrypt } from 'src/common/crypto.util';
 import * as bcrypt from 'bcrypt';
+import usdtAbi from './../abis/erc20_abi.json'; // standard ERC20 ABI
 
 @Injectable()
 export class WalletService {
   private readonly logger = new Logger(WalletService.name);
+  private provider = new RpcProvider({
+    nodeUrl: 'https://starknet-sepolia.public.blastapi.io/rpc/v0_7',
+  });
+  private account: Account;
+  public USDT_CONTRACT =
+    '0x0773Ec0C0Bb16014f733888610c5c19123B6d5e3615Ea26208e7c90b0b5cddb2'; // deployed USDT address on Starknet
 
   constructor(
     private readonly configService: ConfigService,
-
     @InjectModel(Wallet.name)
     private walletModel: Model<Wallet>,
-  ) {}
+  ) {
+    const accountAddress = this.configService.get<string>('ACCOUNT_ADDRESS');
+    const privateKey = this.configService.get<string>('PRIVATE_KEY');
+
+    this.account = new Account({
+      provider: this.provider,
+      address: accountAddress,
+      signer: privateKey,
+    });
+  }
+
+  async sendUSDT(to: string, amount: bigint) {
+    const contract = new Contract({
+      abi: usdtAbi as any,
+      address: this.USDT_CONTRACT,
+    });
+
+    contract.connect(this.account);
+
+    const decimals = 6n;
+    const value = amount * 10n ** decimals;
+
+    return await contract.invoke('transfer', [to, value.toString()]);
+  }
 
   // wallet creation with Starknet.js v8.5.2 paymaster
   async createWallet() {

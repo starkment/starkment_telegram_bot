@@ -6,7 +6,9 @@
         "__scenes": {},
         "awaitingPin": false,
         "awaitingEmail": false,
-        "telegramId": "1315121610"
+        "telegramId": "1315121610",
+        "awaitingRecipient": false,
+        "awaitingAmount": false
       }
     }
   ]
