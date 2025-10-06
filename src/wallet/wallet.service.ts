@@ -13,20 +13,19 @@ import {
   CairoCustomEnum,
   PaymasterRpc,
   num,
-  Contract,
+  uint256,
 } from 'starknet';
 import { Wallet } from './schemas/wallet.schema';
 import { Model } from 'mongoose';
 import { CreateWalletDto } from './dto/create-wallet.dto';
 import { encrypt } from 'src/common/crypto.util';
 import * as bcrypt from 'bcrypt';
-import usdtAbi from './../abis/erc20_abi.json'; // standard ERC20 ABI
 
 @Injectable()
 export class WalletService {
   private readonly logger = new Logger(WalletService.name);
   private provider = new RpcProvider({
-    nodeUrl: 'https://starknet-sepolia.public.blastapi.io/rpc/v0_7',
+    nodeUrl: 'https://starknet-sepolia.public.blastapi.io',
   });
   private account: Account;
   public USDT_CONTRACT =
@@ -44,21 +43,46 @@ export class WalletService {
       provider: this.provider,
       address: accountAddress,
       signer: privateKey,
+      cairoVersion: '1',
     });
   }
 
-  async sendUSDT(to: string, amount: bigint) {
-    const contract = new Contract({
-      abi: usdtAbi as any,
-      address: this.USDT_CONTRACT,
-    });
+  async sendUSDT(to: string, amount: bigint, ctx?: any) {
+    try {
+      const decimals = 6n;
+      const value = amount * 10n ** decimals;
 
-    contract.connect(this.account);
+      if (!to.startsWith('0x')) {
+        throw new Error(`Invalid recipient address: ${to}`);
+      }
 
-    const decimals = 6n;
-    const value = amount * 10n ** decimals;
+      const uint256Amount = uint256.bnToUint256(value);
 
-    return await contract.invoke('transfer', [to, value.toString()]);
+      const transferCall = {
+        contractAddress: this.USDT_CONTRACT,
+        entrypoint: 'transfer',
+        // manually specify [recipient, low, high]
+        calldata: [to, uint256Amount.low, uint256Amount.high],
+      };
+
+      this.logger.log(
+        `Preparing USDT transfer to ${to} with value ${value.toString()}`,
+      );
+
+      // Execute the transfer with automatic fee estimation
+      const tx = await this.account.execute(transferCall);
+
+      const msg = `✅ USDT transfer successful\nTx hash: ${tx.transaction_hash}`;
+      this.logger.log(msg);
+      if (ctx) await ctx.reply(msg);
+
+      return tx;
+    } catch (err) {
+      const errorMsg = `❌ sendUSDT error: ${err.message}`;
+      this.logger.error(errorMsg);
+      if (ctx) await ctx.reply(errorMsg);
+      throw err;
+    }
   }
 
   // wallet creation with Starknet.js v8.5.2 paymaster

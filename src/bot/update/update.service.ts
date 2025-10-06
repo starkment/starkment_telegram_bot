@@ -157,9 +157,9 @@ export class UpdateService {
 
     // Get recipient address
     if (ctx.session?.awaitingRecipient) {
-      if (!/^0x[0-9a-fA-F]{64}$/.test(text)) {
-        return ctx.reply('❌ Invalid Starknet address. Please try again:');
-      }
+      //if (!/^0x[0-9a-fA-F]{64}$/.test(text)) {
+      //  return ctx.reply('❌ Invalid Starknet address. Please try again:');
+      // }
 
       ctx.session.recipientAddress = text;
       ctx.session.awaitingRecipient = false;
