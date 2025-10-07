@@ -36,15 +36,15 @@ export class WalletService {
     @InjectModel(Wallet.name)
     private walletModel: Model<Wallet>,
   ) {
-    const masterAccountAddressPool = this.configService.get<string>(
-      'MASTER_PRIVATE_KEY_POOL',
+    const accountAddressPool = this.configService.get<string>(
+      'ACCOUNT_ADDRESS_POOL',
     );
-    const masterPrivateKeyPool = this.configService.get<string>('PRIVATE_KEY');
+    const privateKeyPool = this.configService.get<string>('PRIVATE_KEY_POOL');
 
     this.account = new Account({
       provider: this.provider,
-      address: masterAccountAddressPool,
-      signer: masterPrivateKeyPool,
+      address: accountAddressPool,
+      signer: privateKeyPool,
       cairoVersion: '1',
     });
   }
@@ -145,7 +145,7 @@ export class WalletService {
 
       return result;
     } catch (err) {
-      const errorMsg = `❌ sendUSDT error: ${err.message}`;
+      const errorMsg = `❌ receiveUSDT error: ${err.message}`;
       this.logger.error(errorMsg);
       if (ctx) await ctx.reply(errorMsg);
       throw err;
