@@ -57,11 +57,9 @@ export class WalletService {
       }
 
       const uint256Amount = uint256.bnToUint256(value);
-
       const transferCall = {
         contractAddress: this.USDT_CONTRACT,
         entrypoint: 'transfer',
-        // manually specify [recipient, low, high]
         calldata: [to, uint256Amount.low, uint256Amount.high],
       };
 
@@ -69,14 +67,81 @@ export class WalletService {
         `Preparing USDT transfer to ${to} with value ${value.toString()}`,
       );
 
-      // Execute the transfer with automatic fee estimation
-      const tx = await this.account.execute(transferCall);
+      // Setup Paymaster
+      const paymasterOptions: any = {
+        nodeUrl:
+          this.configService.get<string>('PAYMASTER_URL') ||
+          'https://sepolia.paymaster.avnu.fi',
+      };
 
-      const msg = `✅ USDT transfer successful\nTx hash: ${tx.transaction_hash}`;
+      const apiKey = this.configService.get<string>('PAYMASTER_API_KEY');
+      if (apiKey) {
+        paymasterOptions.headers = {
+          'x-paymaster-api-key': apiKey,
+        };
+      }
+
+      const paymasterRpc = new PaymasterRpc(paymasterOptions);
+
+      // Check paymaster availability
+      const isAvailable = await paymasterRpc.isAvailable();
+      if (!isAvailable) throw new Error('Paymaster service is not available');
+
+      // Get supported gas tokens
+      const supportedTokens = await paymasterRpc.getSupportedTokens();
+      if (!supportedTokens || supportedTokens.length === 0)
+        throw new Error('No supported gas tokens found');
+
+      const gasToken =
+        this.configService.get<string>('GAS_TOKEN_ADDRESS') ||
+        supportedTokens[0]?.token_address;
+
+      if (!gasToken) {
+        throw new Error('No supported gas token available');
+      }
+
+      // Recreate account with paymaster enabled
+      const account = new Account({
+        provider: this.provider,
+        address: this.account.address,
+        signer: this.account.signer,
+        cairoVersion: '1',
+        paymaster: paymasterRpc,
+      });
+
+      // Set up paymaster fee mode
+      const isSponsored =
+        this.configService.get<string>('PAYMASTER_MODE') === 'sponsored';
+
+      const feesDetails = {
+        feeMode: isSponsored
+          ? { mode: 'sponsored' }
+          : { mode: 'default', gasToken: gasToken },
+      };
+
+      //  Estimate fee if not sponsored
+      let maxFee: any = undefined;
+      if (!isSponsored) {
+        const feeEstimation = await account.estimatePaymasterTransactionFee(
+          [transferCall],
+          feesDetails as any,
+        );
+        maxFee = feeEstimation.suggested_max_fee_in_gas_token;
+      }
+
+      // Execute transaction with paymaster
+      this.logger.log('Executing paymaster USDT transfer...');
+      const result = await account.executePaymasterTransaction(
+        [transferCall],
+        feesDetails as any,
+        maxFee,
+      );
+
+      const msg = `✅ Gasless USDT transfer successful\nTx hash: ${result.transaction_hash}`;
       this.logger.log(msg);
       if (ctx) await ctx.reply(msg);
 
-      return tx;
+      return result;
     } catch (err) {
       const errorMsg = `❌ sendUSDT error: ${err.message}`;
       this.logger.error(errorMsg);

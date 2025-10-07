@@ -7,7 +7,7 @@
         "awaitingPin": false,
         "awaitingEmail": false,
         "telegramId": "1315121610",
-        "awaitingRecipient": true,
+        "awaitingRecipient": false,
         "awaitingAmount": false
       }
     }
