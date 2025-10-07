@@ -36,18 +36,20 @@ export class WalletService {
     @InjectModel(Wallet.name)
     private walletModel: Model<Wallet>,
   ) {
-    const accountAddress = this.configService.get<string>('ACCOUNT_ADDRESS');
-    const privateKey = this.configService.get<string>('PRIVATE_KEY');
+    const masterAccountAddressPool = this.configService.get<string>(
+      'MASTER_PRIVATE_KEY_POOL',
+    );
+    const masterPrivateKeyPool = this.configService.get<string>('PRIVATE_KEY');
 
     this.account = new Account({
       provider: this.provider,
-      address: accountAddress,
-      signer: privateKey,
+      address: masterAccountAddressPool,
+      signer: masterPrivateKeyPool,
       cairoVersion: '1',
     });
   }
 
-  async sendUSDT(to: string, amount: bigint, ctx?: any) {
+  async receiveUSDT(to: string, amount: bigint, ctx?: any) {
     try {
       const decimals = 6n;
       const value = amount * 10n ** decimals;

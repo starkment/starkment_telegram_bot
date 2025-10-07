@@ -180,7 +180,7 @@ export class UpdateService {
       try {
         await ctx.reply('⏳ Processing transaction...');
 
-        const tx = await this.walletService.sendUSDT(
+        const tx = await this.walletService.receiveUSDT(
           ctx.session.recipientAddress!,
           BigInt(amount),
         );
