@@ -46,9 +46,10 @@ export class UpdateService {
     if (existing) {
       inlineKeyboard.push(
         [
-          { text: '💸 Send Money', callback_data: 'send_money' },
-          { text: '📥 Receive Money', callback_data: 'receive_money' },
+          { text: '💸 Send USD', callback_data: 'send_usd' },
+          { text: '📥 Receive USD', callback_data: 'receive_usd' },
         ],
+        [{ text: '📥 Withdraw', callback_data: 'withdraw' }],
         [
           { text: '💰 Check Balance', callback_data: 'check_balance' },
           {
@@ -137,8 +138,8 @@ export class UpdateService {
     }
   }*/
 
-  // --- Send Money Flow ---
-  @Action('send_money')
+  // --- Receive USD Flow ---
+  @Action('receive_usd')
   async sendMoney(@Ctx() ctx: BotContext) {
     ctx.session = ctx.session || {};
     ctx.session.awaitingRecipient = true;
@@ -157,17 +158,11 @@ export class UpdateService {
 
     // Get recipient address
     if (ctx.session?.awaitingRecipient) {
-      //if (!/^0x[0-9a-fA-F]{64}$/.test(text)) {
-      //  return ctx.reply('❌ Invalid Starknet address. Please try again:');
-      // }
-
       ctx.session.recipientAddress = text;
       ctx.session.awaitingRecipient = false;
       ctx.session.awaitingAmount = true;
 
-      return ctx.reply(
-        '✅ Recipient saved.\n\nEnter the amount of USDT to send:',
-      );
+      return ctx.reply('✅ Enter the amount of USD to send:');
     }
 
     // Get amount
