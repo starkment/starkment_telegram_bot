@@ -96,59 +96,13 @@ export class UpdateService {
     await ctx.reply('Please create a 4-digit transaction PIN:');
   }
 
-  /*@On('text')
-  async handleText(
-    @Ctx()
-    ctx: BotContext & {
-      message: TgUpdate.New & TgUpdate.NonChannel & Message.TextMessage;
-    },
-  ) {
-    if (ctx.session?.awaitingPin) {
-      const pin = ctx.message.text;
-
-      if (!/^\d{4}$/.test(pin)) {
-        return ctx.reply('❌ Invalid PIN. Please enter a 4-digit number:');
-      }
-
-      await ctx.deleteMessage(ctx.message.message_id);
-
-      const message = await this.walletService.saveUserWalletDetails(
-        ctx.session.telegramId!,
-        pin,
-        ctx.from?.username || '', // auto add Telegram username
-        undefined, // email will come next
-      );
-
-      await ctx.reply(message, { parse_mode: 'HTML' });
-
-      ctx.session.awaitingPin = false;
-      ctx.session.awaitingEmail = true; // now wait for email
-      return;
-    }
-
-    if (ctx.session?.awaitingEmail) {
-      const email = ctx.message.text;
-
-      if (!/^\S+@\S+\.\S+$/.test(email)) {
-        return ctx.reply('❌ Invalid email format. Please try again:');
-      }
-
-      await this.walletService.updateEmail(ctx.from!.id.toString(), email);
-
-      await ctx.reply(`✅ Email saved successfully: ${email}`);
-      ctx.session.awaitingEmail = false;
-
-      return this.showMenu(ctx);
-    }
-  }*/
-
   // --- Receive USD Flow ---
   @Action('receive_usd')
   async sendMoney(@Ctx() ctx: BotContext) {
     ctx.session = ctx.session || {};
     ctx.session.awaitingRecipient = true;
 
-    await ctx.reply('💸 Please enter the recipient Starknet wallet address:');
+    await ctx.reply('💸 Please enter the recipient username:');
   }
 
   @On('text')
@@ -158,45 +112,98 @@ export class UpdateService {
       message: TgUpdate.New & TgUpdate.NonChannel & Message.TextMessage;
     },
   ) {
-    const text = ctx.message.text;
+    const text = ctx.message.text.trim();
 
-    // Get recipient address
+    if (ctx.session?.awaitingPin) {
+      return this.handlePinSetup(ctx, text);
+    }
+
+    if (ctx.session?.awaitingEmail) {
+      return this.handleEmailSetup(ctx, text);
+    }
+
     if (ctx.session?.awaitingRecipient) {
-      ctx.session.recipientAddress = text;
-      ctx.session.awaitingRecipient = false;
-      ctx.session.awaitingAmount = true;
-
-      return ctx.reply('✅ Enter the amount of USD to send:');
+      return this.handleRecipientSetup(ctx, text);
     }
 
-    // Get amount
     if (ctx.session?.awaitingAmount) {
-      const amount = Number(text);
-      if (isNaN(amount) || amount <= 0) {
-        return ctx.reply('❌ Invalid amount. Please enter a valid number:');
-      }
-
-      try {
-        await ctx.reply('⏳ Processing transaction...');
-
-        const tx = await this.transactionsService.receiveUSDT(
-          ctx.session.recipientAddress!,
-          BigInt(amount),
-        );
-
-        await ctx.reply(
-          `✅ Sent <b>${amount} USDT</b> to <code>${ctx.session.recipientAddress}</code>\n\n🔗 Tx Hash: <code>${tx.transaction_hash}</code>`,
-          { parse_mode: 'HTML' },
-        );
-      } catch (err) {
-        await ctx.reply(`❌ Transaction failed: ${err.message}`);
-      }
-
-      // Reset session
-      ctx.session.awaitingAmount = false;
-      ctx.session.recipientAddress = undefined;
-
-      return;
+      return this.handleAmountSetup(ctx, text);
     }
+
+    await ctx.reply(
+      '🤔 I didn’t understand that. Please use the menu buttons.',
+    );
+  }
+
+  // --- Handle PIN Setup ---
+  private async handlePinSetup(ctx: BotContext, pin: string) {
+    if (!/^\d{4}$/.test(pin)) {
+      return ctx.reply('❌ Invalid PIN. Please enter a 4-digit number:');
+    }
+
+    await ctx.deleteMessage(ctx.message.message_id);
+
+    const message = await this.walletService.saveUserWalletDetails(
+      ctx.session!.telegramId!,
+      pin,
+      ctx.from?.username || '',
+      undefined,
+    );
+
+    await ctx.reply(message, { parse_mode: 'HTML' });
+
+    ctx.session!.awaitingPin = false;
+    ctx.session!.awaitingEmail = true;
+  }
+
+  // --- Handle Email Setup ---
+  private async handleEmailSetup(ctx: BotContext, email: string) {
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      return ctx.reply('❌ Invalid email format. Please try again:');
+    }
+
+    await this.walletService.updateEmail(ctx.from!.id.toString(), email);
+
+    await ctx.reply(`✅ Email saved successfully: ${email}`);
+    ctx.session!.awaitingEmail = false;
+
+    return this.showMenu(ctx);
+  }
+
+  // --- Handle Recipient Address ---
+  private async handleRecipientSetup(ctx: BotContext, recipient: string) {
+    ctx.session!.recipientAddress = recipient.trim();
+    ctx.session!.awaitingRecipient = false;
+    ctx.session!.awaitingAmount = true;
+
+    await ctx.reply('✅ Enter the amount of USD to send:');
+  }
+
+  // --- Handle Sending Amount ---
+  private async handleAmountSetup(ctx: BotContext, text: string) {
+    const amount = Number(text.trim());
+    if (isNaN(amount) || amount <= 0) {
+      return ctx.reply('❌ Invalid amount. Please enter a valid number:');
+    }
+
+    try {
+      await ctx.reply('⏳ Processing transaction...');
+
+      const tx = await this.transactionsService.receiveUSDT(
+        ctx.session!.recipientAddress!,
+        BigInt(amount),
+        ctx,
+      );
+
+      await ctx.reply(
+        `✅ Sent <b>${amount} USDT</b> to <code>${ctx.session!.recipientAddress}</code>\n\n🔗 Tx Hash: <code>${tx.transaction_hash}</code>`,
+        { parse_mode: 'HTML' },
+      );
+    } catch (err) {
+      await ctx.reply(`❌ Transaction failed: ${err.message}`);
+    }
+
+    ctx.session!.awaitingAmount = false;
+    ctx.session!.recipientAddress = undefined;
   }
 }
