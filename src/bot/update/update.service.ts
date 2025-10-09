@@ -6,16 +6,16 @@ import {
   Message,
   Update as TgUpdate,
 } from 'telegraf/typings/core/types/typegram';
+import * as bcrypt from 'bcrypt';
 
 interface BotContext extends Context {
   session?: {
     awaitingPin?: boolean;
     awaitingEmail?: boolean;
-    telegramId?: string;
-
-    awaitingRecipient?: boolean;
     awaitingAmount?: boolean;
-    recipientAddress?: string;
+    telegramId?: string;
+    walletAddress?: string;
+    action?: 'register' | 'receive_usd' | 'none';
   };
 }
 
@@ -40,7 +40,6 @@ export class UpdateService {
     const telegramId = ctx.from?.id.toString();
     const existing = await this.walletService.findByUserId(telegramId!);
 
-    // Build menu dynamically
     const inlineKeyboard: any[] = [];
 
     if (!existing) {
@@ -82,7 +81,6 @@ export class UpdateService {
     ctx.session.awaitingPin = true;
     ctx.session.telegramId = telegramId;
 
-    // Check if wallet already exists
     const existing = await this.walletService.findByUserId(
       ctx.session.telegramId!,
     );
@@ -100,9 +98,9 @@ export class UpdateService {
   @Action('receive_usd')
   async sendMoney(@Ctx() ctx: BotContext) {
     ctx.session = ctx.session || {};
-    ctx.session.awaitingRecipient = true;
-
-    await ctx.reply('💸 Please enter the recipient username:');
+    ctx.session.awaitingPin = true;
+    ctx.session.action = 'receive_usd';
+    await ctx.reply('💸 Please enter your transaction PIN to continue:');
   }
 
   @On('text')
@@ -115,15 +113,14 @@ export class UpdateService {
     const text = ctx.message.text.trim();
 
     if (ctx.session?.awaitingPin) {
+      if (ctx.session.action === 'receive_usd') {
+        return this.handlePinVerification(ctx, text);
+      }
       return this.handlePinSetup(ctx, text);
     }
 
     if (ctx.session?.awaitingEmail) {
       return this.handleEmailSetup(ctx, text);
-    }
-
-    if (ctx.session?.awaitingRecipient) {
-      return this.handleRecipientSetup(ctx, text);
     }
 
     if (ctx.session?.awaitingAmount) {
@@ -170,16 +167,7 @@ export class UpdateService {
     return this.showMenu(ctx);
   }
 
-  // --- Handle Recipient Address ---
-  private async handleRecipientSetup(ctx: BotContext, recipient: string) {
-    ctx.session!.recipientAddress = recipient.trim();
-    ctx.session!.awaitingRecipient = false;
-    ctx.session!.awaitingAmount = true;
-
-    await ctx.reply('✅ Enter the amount of USD to send:');
-  }
-
-  // --- Handle Sending Amount ---
+  // --- Handle Amount Input ---
   private async handleAmountSetup(ctx: BotContext, text: string) {
     const amount = Number(text.trim());
     if (isNaN(amount) || amount <= 0) {
@@ -189,14 +177,14 @@ export class UpdateService {
     try {
       await ctx.reply('⏳ Processing transaction...');
 
-      const tx = await this.transactionsService.receiveUSDT(
-        ctx.session!.recipientAddress!,
+      await this.transactionsService.receiveUSDT(
+        ctx.session!.walletAddress!,
         BigInt(amount),
         ctx,
       );
 
       await ctx.reply(
-        `✅ Sent <b>${amount} USDT</b> to <code>${ctx.session!.recipientAddress}</code>\n\n🔗 Tx Hash: <code>${tx.transaction_hash}</code>`,
+        `✅ You have received <b>${amount} USDT</b> into your account`,
         { parse_mode: 'HTML' },
       );
     } catch (err) {
@@ -204,6 +192,33 @@ export class UpdateService {
     }
 
     ctx.session!.awaitingAmount = false;
-    ctx.session!.recipientAddress = undefined;
+    ctx.session!.walletAddress = undefined;
+
+    return this.showMenu(ctx);
+  }
+
+  // --- Handle PIN Verification
+  private async handlePinVerification(ctx: BotContext, enteredPin: string) {
+    const telegramId = ctx.from?.id.toString();
+
+    const wallet = await this.walletService.findByUserId(telegramId!);
+    if (!wallet) {
+      await ctx.reply('⚠️ No wallet found. Please register first.');
+      ctx.session!.awaitingPin = false;
+      ctx.session!.action = undefined;
+      return this.showMenu(ctx);
+    }
+
+    const isMatch = await bcrypt.compare(enteredPin, wallet.transactionPin);
+    if (!isMatch) {
+      return ctx.reply('❌ Incorrect PIN. Please try again:');
+    }
+
+    // ✅ PIN correct — ask for amount
+    ctx.session!.awaitingPin = false;
+    ctx.session!.awaitingAmount = true;
+    ctx.session!.walletAddress = wallet.walletAddress;
+
+    await ctx.reply('✅ PIN verified!\n\n💰 Please enter the amount of USDT:');
   }
 }

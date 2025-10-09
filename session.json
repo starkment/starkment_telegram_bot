@@ -8,7 +8,8 @@
         "awaitingEmail": false,
         "telegramId": "1315121610",
         "awaitingRecipient": false,
-        "awaitingAmount": false
+        "awaitingAmount": false,
+        "action": "receive_usd"
       }
     }
   ]

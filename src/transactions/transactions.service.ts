@@ -116,9 +116,9 @@ export class TransactionsService {
         maxFee,
       );
 
-      const msg = `✅ Gasless USDT transfer successful\nTx hash: ${result.transaction_hash}`;
-      this.logger.log(msg);
-      if (ctx) await ctx.reply(msg);
+      // const msg = `✅ Gasless USDT transfer successful\nTx hash: ${result.transaction_hash}`;
+      // this.logger.log(msg);
+      // if (ctx) await ctx.reply(msg);
 
       return result;
     } catch (err) {
@@ -225,9 +225,9 @@ export class TransactionsService {
         maxFee,
       );
 
-      const msg = `✅ Gasless USDT transfer successful\nTx hash: ${result.transaction_hash}`;
-      this.logger.log(msg);
-      if (ctx) await ctx.reply(msg);
+      // const msg = `✅ Gasless USDT transfer successful\nTx hash: ${result.transaction_hash}`;
+      // this.logger.log(msg);
+      // if (ctx) await ctx.reply(msg);
 
       return result;
     } catch (err) {
