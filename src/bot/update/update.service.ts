@@ -1,4 +1,5 @@
 import { Start, Ctx, Action, Update, On } from 'nestjs-telegraf';
+import { TransactionsService } from 'src/transactions/transactions.service';
 import { WalletService } from 'src/wallet/wallet.service';
 import { Context } from 'telegraf';
 import {
@@ -20,7 +21,10 @@ interface BotContext extends Context {
 
 @Update()
 export class UpdateService {
-  constructor(private readonly walletService: WalletService) {}
+  constructor(
+    private readonly walletService: WalletService,
+    private readonly transactionsService: TransactionsService,
+  ) {}
 
   @Start()
   async start(@Ctx() ctx: BotContext) {
@@ -175,7 +179,7 @@ export class UpdateService {
       try {
         await ctx.reply('⏳ Processing transaction...');
 
-        const tx = await this.walletService.receiveUSDT(
+        const tx = await this.transactionsService.receiveUSDT(
           ctx.session.recipientAddress!,
           BigInt(amount),
         );

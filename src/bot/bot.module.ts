@@ -9,6 +9,7 @@ import { TelegrafModule } from 'nestjs-telegraf';
 import * as LocalSession from 'telegraf-session-local';
 import { WalletModule } from 'src/wallet/wallet.module';
 import { ConfigService } from '@nestjs/config';
+import { TransactionsModule } from 'src/transactions/transactions.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ConfigService } from '@nestjs/config';
       }),
     }),
     WalletModule,
+    TransactionsModule,
   ],
   controllers: [BotController],
   providers: [BotService, MessageService, UpdateService],
