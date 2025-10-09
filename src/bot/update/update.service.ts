@@ -177,6 +177,9 @@ export class UpdateService {
     try {
       await ctx.reply('⏳ Processing transaction...');
 
+      // TODO
+      // before this happens, user accounts has to be deducted in local currency
+
       await this.transactionsService.receiveUSDT(
         ctx.session!.walletAddress!,
         BigInt(amount),
