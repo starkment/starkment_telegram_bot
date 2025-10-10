@@ -1,6 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Account, RpcProvider, PaymasterRpc, uint256 } from 'starknet';
+import {
+  Account,
+  RpcProvider,
+  PaymasterRpc,
+  uint256,
+  Contract,
+} from 'starknet';
 
 @Injectable()
 export class TransactionsService {
@@ -234,6 +240,75 @@ export class TransactionsService {
       const errorMsg = `❌ sendUSDT error: ${err.message}`;
       this.logger.error(errorMsg);
       if (ctx) await ctx.reply(errorMsg);
+      throw err;
+    }
+  }
+
+  async getUSDTBalance(address: string): Promise<string> {
+    try {
+      const contract = new Contract({
+        abi: [
+          {
+            name: 'balanceOf',
+            type: 'function',
+            inputs: [{ name: 'account', type: 'felt' }],
+            outputs: [
+              {
+                name: 'balance',
+                type: 'Uint256',
+              },
+            ],
+          },
+        ],
+        address: this.USDT_CONTRACT,
+      });
+
+      const result = await contract.balanceOf(address);
+      const balance = uint256.uint256ToBN(result.balance);
+      const decimals = 6n;
+
+      const formatted = Number(balance) / Number(10n ** decimals);
+      this.logger.log(`USDT balance of ${address}: ${formatted} USDT`);
+
+      return formatted.toString();
+    } catch (err) {
+      const errorMsg = `❌ getUSDTBalance error: ${err.message}`;
+      this.logger.error(errorMsg);
+      throw err;
+    }
+  }
+
+  async getUSDTHistory(address: string, limit = 10): Promise<any[]> {
+    try {
+      this.logger.log(`Fetching USDT transfer history for ${address}...`);
+
+      // Query recent transactions for this address
+      const txs = await this.provider.getBlockWithTxs('latest');
+
+      // Filter transactions where this address is sender or receiver
+      const history = txs.transactions
+        .filter(
+          (tx: any) =>
+            tx.calldata?.includes(address) ||
+            tx.contract_address?.toLowerCase() ===
+              this.USDT_CONTRACT.toLowerCase(),
+        )
+        .slice(0, limit);
+
+      this.logger.log(
+        `Found ${history.length} recent USDT transactions for ${address}`,
+      );
+
+      return history.map((tx: any) => ({
+        tx_hash: tx.transaction_hash,
+        status: tx.status,
+        type: tx.entry_point_selector === 'transfer' ? 'transfer' : 'unknown',
+        timestamp: tx.timestamp,
+        calldata: tx.calldata,
+      }));
+    } catch (err) {
+      const errorMsg = `❌ getUSDTHistory error: ${err.message}`;
+      this.logger.error(errorMsg);
       throw err;
     }
   }
