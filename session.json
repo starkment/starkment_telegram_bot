@@ -5,11 +5,10 @@
       "data": {
         "__scenes": {},
         "awaitingPin": false,
-        "awaitingEmail": false,
+        "awaitingEmail": true,
         "telegramId": "1315121610",
         "awaitingRecipient": false,
-        "awaitingAmount": false,
-        "action": "receive_usd"
+        "awaitingAmount": false
       }
     }
   ]

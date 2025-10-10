@@ -7,15 +7,18 @@ import {
   Update as TgUpdate,
 } from 'telegraf/typings/core/types/typegram';
 import * as bcrypt from 'bcrypt';
+import { decrypt } from 'src/common/crypto.util';
 
 interface BotContext extends Context {
   session?: {
     awaitingPin?: boolean;
     awaitingEmail?: boolean;
     awaitingAmount?: boolean;
+    awaitingRecipient?: boolean;
     telegramId?: string;
     walletAddress?: string;
-    action?: 'register' | 'receive_usd' | 'none';
+    recipientAddress?: string;
+    action?: 'register' | 'receive_usd' | 'send_usd';
   };
 }
 
@@ -103,6 +106,15 @@ export class UpdateService {
     await ctx.reply('💸 Please enter your transaction PIN to continue:');
   }
 
+  // --- Send USD Flow ---
+  @Action('send_usd')
+  async sendUsd(@Ctx() ctx: BotContext) {
+    ctx.session = ctx.session || {};
+    ctx.session.awaitingPin = true;
+    ctx.session.action = 'send_usd';
+    await ctx.reply('💸 Please enter your transaction PIN to continue:');
+  }
+
   @On('text')
   async handleText(
     @Ctx()
@@ -112,21 +124,35 @@ export class UpdateService {
   ) {
     const text = ctx.message.text.trim();
 
+    // PIN Handling
     if (ctx.session?.awaitingPin) {
-      if (ctx.session.action === 'receive_usd') {
+      if (
+        ctx.session.action === 'receive_usd' ||
+        ctx.session.action === 'send_usd'
+      ) {
         return this.handlePinVerification(ctx, text);
       }
       return this.handlePinSetup(ctx, text);
     }
 
-    if (ctx.session?.awaitingEmail) {
-      return this.handleEmailSetup(ctx, text);
+    // Email Handling
+    if (ctx.session.action === 'register') {
+      if (ctx.session?.awaitingEmail) {
+        return this.handleEmailSetup(ctx, text);
+      }
     }
 
+    // Recipient Address Handling, Username (Send USD Flow)
+    if (ctx.session?.awaitingRecipient) {
+      return this.handleRecipientInput(ctx, text);
+    }
+
+    // Amount Handling (Send or Receive Flow)
     if (ctx.session?.awaitingAmount) {
       return this.handleAmountSetup(ctx, text);
     }
 
+    // Default: Unrecognized Input
     await ctx.reply(
       '🤔 I didn’t understand that. Please use the menu buttons.',
     );
@@ -167,44 +193,11 @@ export class UpdateService {
     return this.showMenu(ctx);
   }
 
-  // --- Handle Amount Input ---
-  private async handleAmountSetup(ctx: BotContext, text: string) {
-    const amount = Number(text.trim());
-    if (isNaN(amount) || amount <= 0) {
-      return ctx.reply('❌ Invalid amount. Please enter a valid number:');
-    }
-
-    try {
-      await ctx.reply('⏳ Processing transaction...');
-
-      // TODO
-      // before this happens, user accounts has to be deducted in local currency
-
-      await this.transactionsService.receiveUSDT(
-        ctx.session!.walletAddress!,
-        BigInt(amount),
-        ctx,
-      );
-
-      await ctx.reply(
-        `✅ You have received <b>${amount} USDT</b> into your account`,
-        { parse_mode: 'HTML' },
-      );
-    } catch (err) {
-      await ctx.reply(`❌ Transaction failed: ${err.message}`);
-    }
-
-    ctx.session!.awaitingAmount = false;
-    ctx.session!.walletAddress = undefined;
-
-    return this.showMenu(ctx);
-  }
-
   // --- Handle PIN Verification
   private async handlePinVerification(ctx: BotContext, enteredPin: string) {
     const telegramId = ctx.from?.id.toString();
-
     const wallet = await this.walletService.findByUserId(telegramId!);
+
     if (!wallet) {
       await ctx.reply('⚠️ No wallet found. Please register first.');
       ctx.session!.awaitingPin = false;
@@ -217,11 +210,109 @@ export class UpdateService {
       return ctx.reply('❌ Incorrect PIN. Please try again:');
     }
 
-    // ✅ PIN correct — ask for amount
     ctx.session!.awaitingPin = false;
-    ctx.session!.awaitingAmount = true;
     ctx.session!.walletAddress = wallet.walletAddress;
 
-    await ctx.reply('✅ PIN verified!\n\n💰 Please enter the amount of USDT:');
+    if (ctx.session!.action === 'receive_usd') {
+      ctx.session!.awaitingAmount = true;
+      await ctx.reply(
+        '✅ PIN verified!\n\n💰 Please enter the amount of USDT:',
+      );
+    } else if (ctx.session!.action === 'send_usd') {
+      ctx.session!.awaitingRecipient = true;
+      await ctx.reply(
+        '✅ PIN verified!\n\n📤 Please enter the recipient username:',
+      );
+    }
+  }
+
+  // --- Handle Recipient Address Input ---
+  private async handleRecipientInput(ctx: BotContext, address: string) {
+    ctx.session!.recipientAddress = address;
+    ctx.session!.awaitingRecipient = false;
+    ctx.session!.awaitingAmount = true;
+
+    await ctx.reply('Please enter the amount of USDT to send:');
+  }
+
+  // --- Handle Send or Receive Amount Input ---
+  private async handleAmountSetup(ctx: BotContext, text: string) {
+    const amount = Number(text.trim());
+    if (isNaN(amount) || amount <= 0) {
+      return ctx.reply('❌ Invalid amount. Please enter a valid number:');
+    }
+
+    try {
+      await ctx.reply('⏳ Processing transaction...');
+
+      const telegramId = ctx.from?.id.toString();
+      const wallet = await this.walletService.findByUserId(telegramId!);
+
+      if (!wallet) {
+        await ctx.reply('⚠️ Wallet not found. Please register first.');
+        return this.showMenu(ctx);
+      }
+
+      // Check action type
+      if (ctx.session?.action === 'send_usd') {
+        const to = ctx.session!.recipientAddress!;
+
+        // ✅ Decrypt stored private key before using it
+        if (!wallet.privateKey || !wallet.iv || !wallet.authTag) {
+          await ctx.reply('⚠️ Encrypted key data missing for this wallet.');
+          return this.showMenu(ctx);
+        }
+
+        let decryptedPrivateKey: string;
+        try {
+          decryptedPrivateKey = decrypt(
+            wallet.privateKey,
+            wallet.iv,
+            wallet.authTag,
+          );
+        } catch (err) {
+          await ctx.reply(
+            '❌ Failed to decrypt private key. Please contact support.',
+          );
+          throw err;
+        }
+
+        await this.transactionsService.sendUSDT(
+          wallet.walletAddress, // from
+          decryptedPrivateKey, // signer
+          to,
+          BigInt(amount),
+          ctx,
+        );
+
+        await ctx.reply(
+          `✅ You have successfully sent <b>${amount} USDT</b> to <code>${to}</code>`,
+          { parse_mode: 'HTML' },
+        );
+      } else if (ctx.session?.action === 'receive_usd') {
+        // todo
+        // deduct from user local bank, the equivalent of usdt he needs
+        await this.transactionsService.receiveUSDT(
+          ctx.session!.walletAddress!,
+          BigInt(amount),
+          ctx,
+        );
+
+        await ctx.reply(
+          `✅ You have received <b>${amount} USDT</b> into your account`,
+          { parse_mode: 'HTML' },
+        );
+      }
+    } catch (err) {
+      await ctx.reply(`❌ Transaction failed: ${err.message}`);
+    }
+
+    // Cleanup session
+    ctx.session!.awaitingAmount = false;
+    ctx.session!.walletAddress = undefined;
+    ctx.session!.recipientAddress = undefined;
+    ctx.session!.action = undefined;
+
+    return this.showMenu(ctx);
   }
 }
