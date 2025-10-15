@@ -1,12 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  Account,
-  RpcProvider,
-  PaymasterRpc,
-  uint256,
-  Contract,
-} from 'starknet';
+import { Account, RpcProvider, PaymasterRpc, uint256, num } from 'starknet';
 
 @Injectable()
 export class TransactionsService {
@@ -246,27 +240,29 @@ export class TransactionsService {
 
   async getUSDTBalance(address: string): Promise<string> {
     try {
-      const contract = new Contract({
-        abi: [
-          {
-            name: 'balanceOf',
-            type: 'function',
-            inputs: [{ name: 'account', type: 'felt' }],
-            outputs: [
-              {
-                name: 'balance',
-                type: 'Uint256',
-              },
-            ],
-          },
-        ],
-        address: this.USDT_CONTRACT,
+      // Validate address
+      if (!address || !address.startsWith('0x')) {
+        throw new Error(`Invalid address: ${address}`);
+      }
+
+      const result = await this.provider.callContract({
+        contractAddress: this.USDT_CONTRACT,
+        entrypoint: 'balanceOf',
+        calldata: [num.toHex(address)],
       });
 
-      const result = await contract.balanceOf(address);
-      const balance = uint256.uint256ToBN(result.balance);
-      const decimals = 6n;
+      // Ensure the result contains two elements (low, high)
+      if (!result || result.length < 2 || !result[0] || !result[1]) {
+        throw new Error(`Invalid contract response: ${JSON.stringify(result)}`);
+      }
 
+      // ✅ Convert properly from uint256
+      const balance = uint256.uint256ToBN({
+        low: result[0],
+        high: result[1],
+      });
+
+      const decimals = 6n;
       const formatted = Number(balance) / Number(10n ** decimals);
       this.logger.log(`USDT balance of ${address}: ${formatted} USDT`);
 
@@ -274,7 +270,7 @@ export class TransactionsService {
     } catch (err) {
       const errorMsg = `❌ getUSDTBalance error: ${err.message}`;
       this.logger.error(errorMsg);
-      throw err;
+      return '0'; // ✅ Return 0 balance instead of throwing
     }
   }
 
