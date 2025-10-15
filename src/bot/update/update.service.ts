@@ -256,6 +256,8 @@ export class UpdateService {
       // Check action type
       if (ctx.session?.action === 'send_usd') {
         const to = ctx.session!.recipientAddress!;
+        const getUserWalletAddress =
+          await this.walletService.getWalletAddressByUsername(to);
 
         // ✅ Decrypt stored private key before using it
         if (!wallet.privateKey || !wallet.iv || !wallet.authTag) {
@@ -280,7 +282,7 @@ export class UpdateService {
         await this.transactionsService.sendUSDT(
           wallet.walletAddress, // from
           decryptedPrivateKey, // signer
-          to,
+          getUserWalletAddress,
           BigInt(amount),
           ctx,
         );

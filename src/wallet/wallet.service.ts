@@ -218,4 +218,12 @@ export class WalletService {
   async updateEmail(userId: string, email: string): Promise<void> {
     await this.walletModel.updateOne({ userId }, { $set: { email } }).exec();
   }
+
+  async getWalletAddressByUsername(username: string): Promise<string | null> {
+    const wallet = await this.walletModel
+      .findOne({ username }, { walletAddress: 1, _id: 0 })
+      .exec();
+
+    return wallet ? wallet.walletAddress : null;
+  }
 }
