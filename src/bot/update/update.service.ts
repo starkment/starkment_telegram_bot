@@ -279,11 +279,6 @@ export class UpdateService {
           throw err;
         }
 
-        const balance = await this.transactionsService.getUSDTHistory(
-          '0x003f5a98f49a2294d8629670178f85bcf47ed07c9b14e935c78ecadc4cb3239e',
-        );
-        await ctx.reply(`history: ${balance} USDT`);
-
         await this.transactionsService.sendUSDT(
           wallet.walletAddress, // from
           decryptedPrivateKey, // signer
@@ -319,6 +314,32 @@ export class UpdateService {
     ctx.session!.walletAddress = undefined;
     ctx.session!.recipientAddress = undefined;
     ctx.session!.action = undefined;
+
+    return this.showMenu(ctx);
+  }
+
+  @Action('check_balance')
+  async checkBalance(@Ctx() ctx: BotContext) {
+    try {
+      const telegramId = ctx.from?.id.toString();
+      const wallet = await this.walletService.findByUserId(telegramId!);
+
+      if (!wallet) {
+        await ctx.reply('⚠️ No wallet found. Please register first.');
+        return this.showMenu(ctx);
+      }
+
+      await ctx.reply('⏳ Checking your balance...');
+
+      // Call the function to get user balance
+      const balance = await this.transactionsService.getUSDTBalance(
+        wallet.walletAddress,
+      );
+
+      await ctx.reply(`💰 Your USDT Balance: ${balance} USDT`);
+    } catch (err) {
+      await ctx.reply(`❌ Failed to check balance: ${err.message}`);
+    }
 
     return this.showMenu(ctx);
   }
