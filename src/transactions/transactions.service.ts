@@ -276,36 +276,105 @@ export class TransactionsService {
 
   async getUSDTHistory(address: string, limit = 10): Promise<any[]> {
     try {
-      this.logger.log(`Fetching USDT transfer history for ${address}...`);
+      this.logger.log(`Fetching recent USDT transfer events for ${address}...`);
 
-      // Query recent transactions for this address
-      const txs = await this.provider.getBlockWithTxs('latest');
+      const normalizedAddress = num.toHex(address).toLowerCase();
+      const history: any[] = [];
 
-      // Filter transactions where this address is sender or receiver
-      const history = txs.transactions
-        .filter(
-          (tx: any) =>
-            tx.calldata?.includes(address) ||
-            tx.contract_address?.toLowerCase() ===
-              this.USDT_CONTRACT.toLowerCase(),
-        )
-        .slice(0, limit);
+      // Use chunked approach for better performance
+      const latestBlock = await this.provider.getBlockNumber();
+      const chunkSize = 50;
+      const maxBlocksToScan = 2000;
+
+      for (
+        let startBlock = latestBlock;
+        startBlock > latestBlock - maxBlocksToScan && history.length < limit;
+        startBlock -= chunkSize
+      ) {
+        const endBlock = Math.max(0, startBlock - chunkSize);
+
+        // Process blocks in parallel within the chunk
+        const blockPromises = [];
+        for (
+          let blockNumber = startBlock;
+          blockNumber > endBlock && history.length < limit;
+          blockNumber--
+        ) {
+          blockPromises.push(
+            this.processBlockForUSDTransfers(
+              blockNumber,
+              normalizedAddress,
+              limit - history.length,
+            ),
+          );
+        }
+
+        const chunkResults = await Promise.all(blockPromises);
+        for (const blockHistory of chunkResults) {
+          history.push(...blockHistory);
+          if (history.length >= limit) break;
+        }
+      }
+
+      // Sort by block number descending (newest first)
+      history.sort((a, b) => b.block_number - a.block_number);
 
       this.logger.log(
-        `Found ${history.length} recent USDT transactions for ${address}`,
+        `Found ${history.length} USDT transfer(s) for ${address}`,
       );
-
-      return history.map((tx: any) => ({
-        tx_hash: tx.transaction_hash,
-        status: tx.status,
-        type: tx.entry_point_selector === 'transfer' ? 'transfer' : 'unknown',
-        timestamp: tx.timestamp,
-        calldata: tx.calldata,
-      }));
+      return history.slice(0, limit);
     } catch (err) {
       const errorMsg = `❌ getUSDTHistory error: ${err.message}`;
       this.logger.error(errorMsg);
-      throw err;
+      return [];
+    }
+  }
+
+  private async processBlockForUSDTransfers(
+    blockNumber: number,
+    address: string,
+    limit: number,
+  ): Promise<any[]> {
+    try {
+      const block = await this.provider.getBlockWithReceipts(blockNumber);
+      const blockHistory: any[] = [];
+
+      for (const tx of block.transactions) {
+        if (!tx.receipt?.events || blockHistory.length >= limit) break;
+
+        for (const event of tx.receipt.events) {
+          if (blockHistory.length >= limit) break;
+
+          // Check if this is from USDT contract and has transfer-like data
+          if (
+            event.from_address?.toLowerCase() ===
+              this.USDT_CONTRACT.toLowerCase() &&
+            event.data?.length >= 3
+          ) {
+            const from = event.data[0]?.toLowerCase();
+            const to = event.data[1]?.toLowerCase();
+            const amount = event.data[2];
+
+            if (from === address || to === address) {
+              blockHistory.push({
+                tx_hash: tx.receipt.transaction_hash,
+                block_number: blockNumber,
+                from,
+                to,
+                amount: amount,
+                timestamp: block.timestamp,
+              });
+            }
+          }
+        }
+      }
+
+      return blockHistory;
+    } catch (error) {
+      this.logger.warn(
+        `Error processing block ${blockNumber}: ${error.message}`,
+      );
+      return [];
     }
   }
 }

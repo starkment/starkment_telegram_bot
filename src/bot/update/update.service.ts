@@ -279,6 +279,11 @@ export class UpdateService {
           throw err;
         }
 
+        const balance = await this.transactionsService.getUSDTHistory(
+          '0x003f5a98f49a2294d8629670178f85bcf47ed07c9b14e935c78ecadc4cb3239e',
+        );
+        await ctx.reply(`history: ${balance} USDT`);
+
         await this.transactionsService.sendUSDT(
           wallet.walletAddress, // from
           decryptedPrivateKey, // signer
