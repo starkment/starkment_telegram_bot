@@ -1,5 +1,7 @@
 # Starkment Telegram Bot
 
+Starkment — “universal payments layer” on Starknet, embedded across every chat/social platform
+
 A comprehensive Telegram bot built with NestJS that provides USDT wallet functionality on the Starknet blockchain. The bot enables users to create wallets, send/receive USDT, check balances, and manage transactions through an intuitive Telegram interface.
 
 ## 🏗️ Project Architecture
