@@ -213,6 +213,8 @@ export class UpdateService {
     ctx.session!.awaitingPin = false;
     ctx.session!.walletAddress = wallet.walletAddress;
 
+    await ctx.deleteMessage(ctx.message.message_id);
+
     if (ctx.session!.action === 'receive_usd') {
       ctx.session!.awaitingAmount = true;
       await ctx.reply(
