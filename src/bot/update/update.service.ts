@@ -136,10 +136,8 @@ export class UpdateService {
     }
 
     // Email Handling
-    if (ctx.session.action === 'register') {
-      if (ctx.session?.awaitingEmail) {
-        return this.handleEmailSetup(ctx, text);
-      }
+    if (ctx.session?.awaitingEmail) {
+      return this.handleEmailSetup(ctx, text);
     }
 
     // Recipient Address Handling, Username (Send USD Flow)

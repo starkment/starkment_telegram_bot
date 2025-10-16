@@ -5,7 +5,7 @@
       "data": {
         "__scenes": {},
         "awaitingPin": false,
-        "awaitingEmail": true,
+        "awaitingEmail": false,
         "telegramId": "1315121610",
         "awaitingRecipient": false,
         "awaitingAmount": false
