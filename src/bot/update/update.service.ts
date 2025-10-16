@@ -205,6 +205,8 @@ export class UpdateService {
       return this.showMenu(ctx);
     }
 
+    await ctx.deleteMessage(ctx.message.message_id);
+
     const isMatch = await bcrypt.compare(enteredPin, wallet.transactionPin);
     if (!isMatch) {
       return ctx.reply('❌ Incorrect PIN. Please try again:');
@@ -212,8 +214,6 @@ export class UpdateService {
 
     ctx.session!.awaitingPin = false;
     ctx.session!.walletAddress = wallet.walletAddress;
-
-    await ctx.deleteMessage(ctx.message.message_id);
 
     if (ctx.session!.action === 'receive_usd') {
       ctx.session!.awaitingAmount = true;
